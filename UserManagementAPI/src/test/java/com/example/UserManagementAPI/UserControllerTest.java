@@ -1,8 +1,8 @@
-package com.example.UserManagementAPI.Controller;
+package com.example.UserManagementAPI;
+
 
 import com.example.UserManagementAPI.Model.User;
 import com.example.UserManagementAPI.Repository.UserRepository;
-
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -34,15 +34,7 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<List<User>> createUsers(@Valid @RequestBody List<@Valid User> users) {
-        users.forEach(user -> {
-            if (user.getRoles() == null || user.getRoles().isEmpty()) {
-                user.setRoles(Collections.singleton("ROLE_USER"));
-            }
-            if (user.getPassword() != null) {
-                user.setPassword(passwordEncoder.encode(user.getPassword()));
-            }
-        });
+    public ResponseEntity<List<User>> createUser(@Valid @RequestBody List<@Valid User> users) {
         List<User> savedUsers = userRepository.saveAll(users);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedUsers);
     }
@@ -55,8 +47,7 @@ public class UserController {
     @GetMapping("/{id}")
     public ResponseEntity<User> getUserById(@PathVariable Long id) {
         Optional<User> user = userRepository.findById(id);
-        return user.map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        return user.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/{id}")
@@ -64,15 +55,6 @@ public class UserController {
         return userRepository.findById(id).map(existingUser -> {
             existingUser.setName(userDetails.getName());
             existingUser.setEmail(userDetails.getEmail());
-
-            if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
-                existingUser.setPassword(passwordEncoder.encode(userDetails.getPassword()));
-            }
-
-            if (userDetails.getRoles() != null && !userDetails.getRoles().isEmpty()) {
-                existingUser.setRoles(userDetails.getRoles());
-            }
-
             User updatedUser = userRepository.save(existingUser);
             return ResponseEntity.ok(updatedUser);
         }).orElse(ResponseEntity.notFound().build());
@@ -83,8 +65,9 @@ public class UserController {
         if (userRepository.existsById(id)) {
             userRepository.deleteById(id);
             return ResponseEntity.noContent().build();
+        } else {
+            return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.notFound().build();
     }
 
     @GetMapping("/page")
@@ -92,14 +75,31 @@ public class UserController {
         return userRepository.findAll(pageable);
     }
 
-    @PostMapping("/register")
+    @PostMapping("/register") // corrected the path
     public ResponseEntity<User> registerUser(@Valid @RequestBody User user) {
-        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+        if (userRepository.findByEmail(user.getEmail()).isPresent()) { // changed from findById to findByEmail
             return ResponseEntity.status(HttpStatus.CONFLICT).body(null);
         }
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        user.setRoles(Collections.singleton("ROLE_USER"));
+        user.setPassword(passwordEncoder.encode(user.getPassword())); // fixed syntax
+        user.setRoles(Collections.singleton("USER")); // or "ROLE_USER" depending on your needs
         User savedUser = userRepository.save(user);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedUser);
+    }
+    @PutMapping("/{id}")
+    public ResponseEntity<User> updateUser(@PathVariable Long id, @Valid @RequestBody User userDetails){
+        return userRepository.findById(id).map(existingUser -> {
+            existingUser.setName(userDetails.getName());
+            existingUser.setEmail(userDetails.getEmail());
+            User updatedUser = userRepository.save(existingUser);
+            if(userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()){
+                existingUser.setPassword(passwordEncoder.encode(userDetails.getPassword()));
+            }
+
+            if(userDetails.getRoles() != null && !userDetails.getRoles().isEmpty()){
+                existingUser.setRoles(userDetails.getRoles());
+            }
+            User updatesUser = userRepository.save(existingUser);
+            return ResponseEntity.ok(updatedUser);
+        }).orElse(ResponseEntity.notFound().build());
     }
 }
